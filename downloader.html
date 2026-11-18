@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>HLS 下载器</title>
+  <style>
+    :root {
+      --bg: #f6f7f9; --panel: #fff; --fg: #1b1c1e; --fg2: #5f6368;
+      --line: #e3e5e8; --accent: #1a73e8; --ok: #1e8e3e; --warn: #b3261e;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #17181a; --panel: #212327; --fg: #e8eaed; --fg2: #9aa0a6; --line: #33363b; --accent: #8ab4f8; }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 40px 20px; min-height: 100vh;
+      background: var(--bg); color: var(--fg);
+      font: 14px/1.6 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+      display: flex; justify-content: center; align-items: flex-start;
+    }
+    .card {
+      width: 100%; max-width: 680px; background: var(--panel);
+      border: 1px solid var(--line); border-radius: 14px; padding: 24px 26px 22px;
+    }
+    h1 { font-size: 17px; margin: 0 0 4px; font-weight: 650; }
+    .sub { color: var(--fg2); font-size: 12.5px; margin: 0 0 14px; word-break: break-all; }
+    .row { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+    button {
+      border: none; border-radius: 8px; padding: 9px 18px; font-size: 13.5px;
+      font-weight: 600; cursor: pointer; background: var(--accent); color: #fff;
+      font-family: inherit;
+    }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+    button.plain { background: transparent; color: var(--fg2); border: 1px solid var(--line); font-weight: 500; }
+    button.tiny { padding: 4px 10px; font-size: 12px; border-radius: 6px; }
+    .savebar {
+      margin-bottom: 14px; padding: 9px 12px; border-radius: 9px;
+      background: var(--bg); border: 1px solid var(--line);
+      font-size: 12.5px; color: var(--fg2); gap: 8px;
+    }
+    .savebar .lbl { flex: none; }
+    .savebar .dirname {
+      font-weight: 600; color: var(--fg); flex: 1; min-width: 0;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .queue {
+      margin: -4px 0 12px; font-size: 12.5px; color: var(--fg2);
+      padding: 7px 11px; border-radius: 8px;
+      background: color-mix(in srgb, var(--accent) 8%, transparent);
+      border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+    }
+    .bar { height: 6px; border-radius: 99px; background: var(--line); overflow: hidden; margin: 6px 0 10px; }
+    .bar > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .25s ease; }
+    .stat { display: flex; justify-content: space-between; font-size: 12px; color: var(--fg2); font-variant-numeric: tabular-nums; }
+    .log {
+      margin-top: 14px; max-height: 180px; overflow: auto; font: 12px/1.7 ui-monospace, Consolas, monospace;
+      color: var(--fg2); background: var(--bg); border: 1px solid var(--line);
+      border-radius: 8px; padding: 10px 12px; white-space: pre-wrap;
+    }
+    .note { margin-top: 14px; font-size: 12px; color: var(--fg2); line-height: 1.7; }
+    .fmtbar { margin: -2px 0 10px; font-size: 12.5px; color: var(--fg2); }
+    .fmtbar .lbl { flex: none; }
+    .fmtbar select {
+      font: inherit; font-size: 12.5px; color: var(--fg); background: var(--panel);
+      border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px;
+    }
+    .fmtbar .fmt-tip { font-size: 11.5px; color: var(--fg2); opacity: .85; }
+    .autonote {
+      margin: 0 0 14px; padding: 8px 11px; border-radius: 8px; font-size: 12.5px;
+      background: color-mix(in srgb, var(--accent) 10%, transparent);
+      border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    }
+    .err { color: var(--warn); }
+    .ok { color: var(--ok); }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>HLS 分片下载</h1>
+    <p class="sub" id="src">—</p>
+
+    <p id="auto-note" class="autonote hidden">
+      批量模式：自动开始、自动保存，不弹保存框。队列里的地址会依次下载完。
+    </p>
+
+    <p id="queue" class="queue hidden"></p>
+
+    <div class="row savebar">
+      <span class="lbl">保存到</span>
+      <span id="dir-name" class="dirname">下载目录 / 视频嗅探</span>
+      <button id="btn-dir" class="plain tiny">选择目录</button>
+      <button id="btn-dir-reset" class="plain tiny hidden">默认</button>
+    </div>
+
+    <div class="row">
+      <button id="btn-start">开始下载</button>
+      <button id="btn-cancel" class="plain" disabled>停止</button>
+      <span id="phase" style="font-size:12.5px;color:var(--fg2)">就绪</span>
+    </div>
+
+    <div class="row fmtbar">
+      <span class="lbl">合并为</span>
+      <select id="fmt">
+        <option value="mp4" selected>MP4（可直接播放）</option>
+        <option value="ts">原始 TS（保持原样）</option>
+      </select>
+      <span class="fmt-tip">H.264 流会重封装成 MP4；其它编码自动保持 .ts</span>
+    </div>
+
+    <div class="bar"><i id="bar"></i></div>
+    <div class="stat">
+      <span id="count">0 / 0 分片</span>
+      <span id="bytes">—</span>
+    </div>
+
+    <div class="log" id="log"></div>
+
+    <p class="note">
+      HLS 分片会合并并<strong>直接重封装成 MP4</strong>（H.264 + AAC），下载完双击就能播，不用再自己转封装；<br />
+      若是 HEVC / 加密 TS 等特殊情况，会自动保持原始 <code>.ts</code>，可用 <code>ffmpeg -i in.ts -c copy out.mp4</code> 转。<br />
+      默认写入浏览器下载目录下的「视频嗅探」文件夹，不弹保存框；点「选择目录」可固定到某个文件夹，本页后续下载直接写盘。<br />
+      点「停止」会立即中断所有在途请求；弹窗底部的「全部停止」可一次掐掉全部下载页。
+    </p>
+  </div>
+
+  <script src="boot-dl.js"></script>
+</body>
+</html>

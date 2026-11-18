@@ -1,0 +1,40 @@
+{
+  "version": "1.2.0",
+  "notes": "嗅探规则。此文件可直接修改，扩展在秒级内自动生效，无需重载。",
+
+  "hlsExts": ["m3u8"],
+  "dashExts": ["mpd"],
+  "fileExts": ["mp4", "m4v", "webm", "flv", "mkv", "mov", "ts", "m4s", "mp3", "m4a", "aac", "ogg", "opus"],
+  "splitExts": ["ts", "m4s"],
+  "imageExts": ["jpg", "jpeg", "png", "webp", "gif", "avif", "bmp", "svg"],
+
+  "contentTypes": {
+    "hls": ["application/vnd.apple.mpegurl", "application/x-mpegurl", "audio/mpegurl"],
+    "dash": ["application/dash+xml"],
+    "file": ["video/", "audio/"],
+    "image": ["image/"]
+  },
+
+  "ignorePatterns": [
+    "doubleclick.net",
+    "googlesyndication",
+    "/ads/",
+    "/advert",
+    "preroll"
+  ],
+
+  "imageIgnorePatterns": [
+    "/favicon",
+    "favicon.ico",
+    "sprite",
+    "/pixel",
+    "1x1.",
+    "spacer.gif",
+    "/blank."
+  ],
+
+  "minBytes": 0,
+  "minImageBytes": 5120,
+  "maxPerTab": 500,
+  "hideSegmentsByDefault": true
+}
